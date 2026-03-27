@@ -36,7 +36,7 @@ export interface SceneItem {
   number: number
   visual: string
   subtitle: string
-  duration?: string
+  duration?: string | null
 }
 
 export interface GeneratedScript {
@@ -57,14 +57,14 @@ export interface ScriptCreateInput {
   theme: string
   scriptType: 'hack' | 'pain' | 'new' | 'knowledge' | 'fomo' | 'other'
   hook: string
-  structureBreakdown?: string
-  emotionDesign?: string
-  cta?: string
-  reusablePoints?: string
-  rewrittenVersion?: string
-  suggestedProduct?: string
-  performanceRating?: number
+  structureBreakdown?: string | null
+  emotionDesign?: string | null
+  cta?: string | null
+  reusablePoints?: string | null
+  rewrittenVersion?: string | null
+  suggestedProduct?: string | null
+  performanceRating?: number | null
   isRecommended?: boolean
-  notes?: string
-  viewsCount?: number
+  notes?: string | null
+  viewsCount?: number | null
 }
