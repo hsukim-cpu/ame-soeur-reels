@@ -49,5 +49,5 @@ export async function querySupabase<T>(
     q = q.range(query.offset, query.offset + (query.limit || 10) - 1)
   }
 
-  return q as Promise<{ data: T[]; error: any }>
+  return q as unknown as Promise<{ data: T[]; error: any }>
 }
