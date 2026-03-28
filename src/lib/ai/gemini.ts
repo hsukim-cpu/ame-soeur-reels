@@ -43,9 +43,7 @@ export class GeminiProvider implements AIProvider {
           generationConfig: {
             maxOutputTokens: 4096,
             temperature: 0.7,
-          },
-          thinkingConfig: {
-            thinkingBudget: 0,  // 關閉 thinking mode，直接輸出結果
+            responseMimeType: 'application/json',  // 強制直接回傳 JSON，不包 markdown
           },
         }),
       })
