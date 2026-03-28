@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import GenerateForm from '@/components/generate/GenerateForm'
 import ScriptResult from '@/components/generate/ScriptResult'
-import { GenerateFormData, GeneratedScript, ReelsScript } from '@/lib/types'
+import { GenerateFormData, GeneratedScript, GenerateMode, ReelsScript } from '@/lib/types'
 
 export default function GeneratePage() {
   const [generatedScript, setGeneratedScript] = useState<GeneratedScript | null>(
@@ -12,6 +12,7 @@ export default function GeneratePage() {
   const [referencedScripts, setReferencedScripts] = useState<ReelsScript[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [generateMode, setGenerateMode] = useState<GenerateMode | undefined>(undefined)
 
   const handleSubmit = async (formData: GenerateFormData) => {
     setIsLoading(true)
@@ -35,6 +36,7 @@ export default function GeneratePage() {
       const data = await response.json()
       setGeneratedScript(data.script)
       setReferencedScripts(data.referencedScripts || [])
+      setGenerateMode(data.mode ?? 'ai')
     } catch (err) {
       const message =
         err instanceof Error ? err.message : '發生未知錯誤，請稍後重試'
@@ -76,6 +78,7 @@ export default function GeneratePage() {
               script={generatedScript}
               referencedScripts={referencedScripts}
               isLoading={isLoading}
+              mode={generateMode}
             />
           </div>
         </div>

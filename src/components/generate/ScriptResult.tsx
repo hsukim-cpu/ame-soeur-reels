@@ -1,18 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { GeneratedScript, ReelsScript } from '@/lib/types'
+import { GeneratedScript, GenerateMode, ReelsScript } from '@/lib/types'
 
 interface ScriptResultProps {
   script: GeneratedScript | null
   referencedScripts: ReelsScript[]
   isLoading: boolean
+  mode?: GenerateMode
 }
 
 export default function ScriptResult({
   script,
   referencedScripts,
   isLoading,
+  mode,
 }: ScriptResultProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [showReferences, setShowReferences] = useState(false)
@@ -60,6 +62,22 @@ export default function ScriptResult({
 
   return (
     <div className="space-y-6">
+      {/* Mode Badge */}
+      <div className="flex items-center gap-2">
+        {mode === 'template' ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+            <span>📋</span> 模板生成
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
+            <span>✨</span> AI 生成
+          </span>
+        )}
+        {mode === 'template' && (
+          <span className="text-xs text-[#999999]">AI 額度暫時不足，以模板輸出，內容可自行調整</span>
+        )}
+      </div>
+
       {/* Hook Section */}
       <div className="bg-[#1A1A1A] text-white rounded-lg p-6">
         <h3 className="text-sm font-semibold uppercase tracking-wide mb-3 opacity-70">

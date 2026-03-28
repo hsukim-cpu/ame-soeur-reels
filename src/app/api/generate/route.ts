@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { buildGeneratePrompt } from '@/lib/prompts'
 import { GenerateFormData, GeneratedScript, ReelsScript } from '@/lib/types'
 import { getProvider } from '@/lib/ai'
+import { generateTemplateScript } from '@/lib/ai/template'
 
 /** 將各種 AI 錯誤轉為對使用者友善的中文訊息 */
 function toUserMessage(error: unknown, providerName: string): string {
@@ -121,13 +122,23 @@ export async function POST(request: NextRequest) {
 
     // Call AI provider (Gemini / Anthropic，由 AI_PROVIDER 環境變數決定)
     let rawText: string
+    let usedMode: 'ai' | 'template' = 'ai'
     try {
       rawText = await provider.generate(prompt)
     } catch (aiError) {
       console.error(`[AI] ${provider.name} generate error:`, aiError)
+
+      // ── Fallback：AI 失敗時改用模板模式 ──────────────────────────
+      console.log('[Fallback] Switching to template mode')
+      const templateScript = generateTemplateScript(formData, referencedScripts)
       return NextResponse.json(
-        { error: toUserMessage(aiError, provider.name), provider: provider.name },
-        { status: 503 }
+        {
+          script: templateScript,
+          referencedScripts,
+          provider: 'template',
+          mode: 'template',
+        },
+        { status: 200 }
       )
     }
 
@@ -162,7 +173,8 @@ export async function POST(request: NextRequest) {
       {
         script: generatedScript,
         referencedScripts,
-        provider: provider.name,  // 回傳 provider 名稱供前端顯示
+        provider: provider.name,
+        mode: usedMode,
       },
       { status: 200 }
     )

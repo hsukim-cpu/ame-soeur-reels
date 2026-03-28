@@ -46,9 +46,13 @@ export interface GeneratedScript {
   cta: string
 }
 
+export type GenerateMode = 'ai' | 'template'
+
 export interface GenerateResponse {
   script: GeneratedScript
   referencedScripts: ReelsScript[]
+  provider: string
+  mode: GenerateMode
 }
 
 export interface ScriptCreateInput {
