@@ -41,8 +41,11 @@ export class GeminiProvider implements AIProvider {
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            maxOutputTokens: 2048,
+            maxOutputTokens: 4096,
             temperature: 0.7,
+          },
+          thinkingConfig: {
+            thinkingBudget: 0,  // 關閉 thinking mode，直接輸出結果
           },
         }),
       })
