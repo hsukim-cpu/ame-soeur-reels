@@ -11,7 +11,7 @@ const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models
 interface GeminiResponse {
   candidates?: Array<{
     content?: {
-      parts?: Array<{ text?: string }>
+      parts?: Array<{ text?: string; thought?: boolean }>
     }
     finishReason?: string
   }>
@@ -66,8 +66,10 @@ export class GeminiProvider implements AIProvider {
       throw new Error(`Gemini API 錯誤 (${code}): ${msg}`)
     }
 
-    // 提取文字
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+    // 提取文字（gemini-2.5-flash 有 thinking mode，parts[0] 可能是思考內容，需跳過）
+    const parts = data.candidates?.[0]?.content?.parts ?? []
+    const textPart = parts.find((p) => !p.thought && p.text) ?? parts[parts.length - 1]
+    const text = textPart?.text
     if (!text) {
       throw new Error('Gemini 回傳空結果')
     }
