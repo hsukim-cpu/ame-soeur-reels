@@ -1,14 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { supabase } from '@/lib/supabase'
 import { buildGeneratePrompt } from '@/lib/prompts'
 import { GenerateFormData, GeneratedScript, ReelsScript } from '@/lib/types'
+import { getProvider } from '@/lib/ai'
+
+/** 將各種 AI 錯誤轉為對使用者友善的中文訊息 */
+function toUserMessage(error: unknown, providerName: string): string {
+  const msg = error instanceof Error ? error.message : ''
+
+  if (msg === 'RATE_LIMIT' || msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('quota') || msg.includes('429')) {
+    return `目前 AI 服務暫時忙碌，請稍後再試（${providerName}）`
+  }
+  if (msg === 'INVALID_API_KEY' || msg.toLowerCase().includes('api key') || msg.toLowerCase().includes('authentication')) {
+    return 'AI 服務設定錯誤，請聯絡管理員'
+  }
+  if (msg.toLowerCase().includes('網路') || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('fetch')) {
+    return '生成服務暫時不可用，請稍後再試'
+  }
+  if (msg.toLowerCase().includes('credit') || msg.toLowerCase().includes('balance')) {
+    return 'AI 服務額度不足，請聯絡管理員'
+  }
+  return '生成服務暫時不可用，請稍後再試'
+}
 
 /**
  * POST /api/generate
- * Generate a Reels script using Claude AI
+ * Generate a Reels script using the configured AI provider (default: Gemini)
  */
 export async function POST(request: NextRequest) {
+  const provider = getProvider()
+
   try {
     const formData: GenerateFormData = await request.json()
 
@@ -30,7 +51,6 @@ export async function POST(request: NextRequest) {
     // Query for relevant scripts from the database
     let referencedScripts: ReelsScript[] = []
     try {
-      // First, try to find scripts with matching script type
       const { data: typeMatches, error: typeError } = await supabase
         .from('reels_script_library')
         .select('*')
@@ -60,7 +80,6 @@ export async function POST(request: NextRequest) {
         }))
       }
 
-      // If we don't have enough matches, get top recommended scripts
       if (referencedScripts.length < 3) {
         const { data: recommendedScripts, error: recError } = await supabase
           .from('reels_script_library')
@@ -94,47 +113,31 @@ export async function POST(request: NextRequest) {
       }
     } catch (dbError) {
       console.error('Database query error:', dbError)
-      // Continue even if database query fails
+      // DB 查詢失敗不影響生成，繼續執行
     }
 
     // Build the prompt
     const prompt = buildGeneratePrompt(formData, referencedScripts)
 
-    // Call Claude API
-    const client = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    })
-
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-6-20250805',
-      max_tokens: 2048,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    })
-
-    // Extract the text content
-    const content = message.content[0]
-    if (content.type !== 'text') {
+    // Call AI provider (Gemini / Anthropic，由 AI_PROVIDER 環境變數決定)
+    let rawText: string
+    try {
+      rawText = await provider.generate(prompt)
+    } catch (aiError) {
+      console.error(`[AI] ${provider.name} generate error:`, aiError)
       return NextResponse.json(
-        { error: '無效的 API 回應' },
-        { status: 500 }
+        { error: toUserMessage(aiError, provider.name), provider: provider.name },
+        { status: 503 }
       )
     }
 
-    // Parse the JSON response from Claude
+    // Parse JSON from the AI response
     let generatedScript: GeneratedScript
     try {
-      // Extract JSON from the response (Claude might include extra text)
-      const jsonMatch = content.text.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) {
-        throw new Error('No JSON found in response')
-      }
-      const parsed = JSON.parse(jsonMatch[0])
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) throw new Error('No JSON found in response')
 
+      const parsed = JSON.parse(jsonMatch[0])
       generatedScript = {
         hook: parsed.hook || '',
         scenes: (parsed.scenes || []).map((scene: any, idx: number) => ({
@@ -147,10 +150,10 @@ export async function POST(request: NextRequest) {
         cta: parsed.cta || '',
       }
     } catch (parseError) {
-      console.error('JSON parse error:', parseError)
-      console.error('Raw response:', content.text)
+      console.error('[AI] JSON parse error:', parseError)
+      console.error('[AI] Raw response:', rawText)
       return NextResponse.json(
-        { error: '無法解析生成結果，請稍後重試' },
+        { error: '無法解析生成結果，請稍後重試', provider: provider.name },
         { status: 500 }
       )
     }
@@ -158,14 +161,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         script: generatedScript,
-        referencedScripts: referencedScripts,
+        referencedScripts,
+        provider: provider.name,  // 回傳 provider 名稱供前端顯示
       },
       { status: 200 }
     )
   } catch (error) {
-    console.error('Generate API error:', error)
+    console.error('[API] Generate route error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '生成失敗' },
+      { error: toUserMessage(error, provider.name), provider: provider.name },
       { status: 500 }
     )
   }
